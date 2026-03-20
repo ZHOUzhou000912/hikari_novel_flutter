@@ -453,11 +453,8 @@ class _BookPainter extends CustomPainter {
     canvas.clipRect(Offset.zero & size);
     final p = paper.value;
     if (p.a == p.f || p.a.y == p.f.y) {
-      final gutterRect = Rect.fromLTWH(size.width - 2, 0, 2, size.height);
-      canvas.drawRect(gutterRect, Paint()..color = gutterColor.withOpacity(0.25));
       return;
     }
-    final full = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
     final c = _offset(p.c, size);
     final e = _offset(p.e, size);
     final b = _offset(p.b, size);
@@ -537,8 +534,6 @@ class _BookPainter extends CustomPainter {
     final uRaw = _calculateIntersectionOfTwoLines(p.a, p.f, p.d, p.i);
     final u = _offset(uRaw, size);
     canvas.drawPath(combineToC, backsidePaint..shader = ui.Gradient.linear(u, g, [Colors.black38, Colors.transparent]));
-    final fullShadow = Paint()..shader = ui.Gradient.linear(Offset(size.width - 12, 0), Offset(size.width, 0), [gutterColor.withOpacity(0.06), gutterColor.withOpacity(0.22)]);
-    canvas.drawPath(Path.combine(PathOperation.intersect, full, Path()..addRect(Rect.fromLTWH(size.width - 18, 0, 18, size.height))), fullShadow);
   }
 
   @override

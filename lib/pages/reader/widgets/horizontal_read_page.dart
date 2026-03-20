@@ -18,6 +18,9 @@ class HorizontalReadPage extends StatefulWidget {
   final double dualPageSpacing;
   final bool pageTurningAnimation;
   final PaperCurlPagerController? paperCurlController;
+  final Widget? pageFooter;
+  final Color? backgroundColor;
+  final Color? backsideColor;
   final Function(int index, int max) onPageChanged;
   final Function(int index) onViewImage;
   final VoidCallback? onCenterTap;
@@ -36,6 +39,9 @@ class HorizontalReadPage extends StatefulWidget {
     required this.dualPageSpacing,
     this.pageTurningAnimation = false,
     this.paperCurlController,
+    this.pageFooter,
+    this.backgroundColor,
+    this.backsideColor,
     this.onCenterTap,
     this.onReachStart,
     this.onReachEnd,
@@ -129,11 +135,11 @@ class _HorizontalReadPageState extends State<HorizontalReadPage> with WidgetsBin
     }
 
     if (oldWidget.pageTurningAnimation != widget.pageTurningAnimation || oldWidget.isDualPage != widget.isDualPage || oldWidget.initIndex != widget.initIndex) {
-      final target = (widget.initIndex.clamp(0, pages.isEmpty ? 0 : pages.length - 1) as num).toInt();
+      final target = (widget.initIndex.clamp(0, _pageCount() <= 0 ? 0 : _pageCount() - 1) as num).toInt();
       index = target;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        if (widget.pageTurningAnimation && !widget.isDualPage) {
+        if (widget.pageTurningAnimation) {
           widget.paperCurlController?.jumpToPage(target);
         } else if (widget.controller.hasClients) {
           widget.controller.jumpToPage(target);
@@ -144,23 +150,24 @@ class _HorizontalReadPageState extends State<HorizontalReadPage> with WidgetsBin
 
   @override
   Widget build(BuildContext context) {
-    if (widget.pageTurningAnimation && !widget.isDualPage) {
+    if (widget.pageTurningAnimation) {
       return PaperCurlPager(
         controller: widget.paperCurlController,
-        pages: List<Widget>.generate(pages.length, (i) => RepaintBoundary(child: _buildPage(i))),
-        initialIndex: (index.clamp(0, pages.isEmpty ? 0 : pages.length - 1) as num).toInt(),
+        pages: List<Widget>.generate(_pageCount(), (i) => RepaintBoundary(child: _buildPage(i))),
+        initialIndex: (index.clamp(0, _pageCount() <= 0 ? 0 : _pageCount() - 1) as num).toInt(),
         interactivePageIndices: {
-          for (var i = 0; i < pages.length; i++)
-            if (pages[i] is ImagePage) i,
+          for (var i = 0; i < _pageCount(); i++)
+            if (_spreadContainsImage(i)) i,
         },
         reverse: widget.reverse,
         animationEnabled: true,
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        backsideColor: Color.lerp(
-          Theme.of(context).colorScheme.surface,
-          Theme.of(context).colorScheme.surfaceTint,
-          Theme.of(context).brightness == Brightness.dark ? 0.18 : 0.10,
-        ),
+        backgroundColor: widget.backgroundColor ?? Theme.of(context).colorScheme.surface,
+        backsideColor: widget.backsideColor ??
+            Color.lerp(
+              widget.backgroundColor ?? Theme.of(context).colorScheme.surface,
+              Theme.of(context).colorScheme.surfaceTint,
+              Theme.of(context).brightness == Brightness.dark ? 0.18 : 0.10,
+            ),
         onCenterTap: widget.onCenterTap,
         onReachStart: widget.onReachStart,
         onReachEnd: widget.onReachEnd,
@@ -206,16 +213,38 @@ class _HorizontalReadPageState extends State<HorizontalReadPage> with WidgetsBin
     }
   }
 
-  Widget _buildPage(int index) {
-    if (widget.isDualPage) {
-      return _buildDualPage(index);
-    } else {
-      if (pages[index] is TextPage) {
-        return _buildSingleText(index);
-      } else {
-        return _buildImage(index);
-      }
+
+  bool _spreadContainsImage(int index) {
+    if (!widget.isDualPage) {
+      return index >= 0 && index < pages.length && pages[index] is ImagePage;
     }
+
+    final firstIndex = index * 2;
+    final secondIndex = firstIndex + 1;
+    final firstHasImage = firstIndex >= 0 && firstIndex < pages.length && pages[firstIndex] is ImagePage;
+    final secondHasImage = secondIndex >= 0 && secondIndex < pages.length && pages[secondIndex] is ImagePage;
+    return firstHasImage || secondHasImage;
+  }
+
+  Widget _buildPage(int index) {
+    final child = widget.isDualPage
+        ? _buildDualPage(index)
+        : (pages[index] is TextPage ? _buildSingleText(index) : _buildImage(index));
+
+    if (widget.pageFooter == null) {
+      return child;
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        child,
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: IgnorePointer(child: widget.pageFooter!),
+        ),
+      ],
+    );
   }
 
   Widget _buildDualPage(int i) {
@@ -384,10 +413,10 @@ class _HorizontalReadPageState extends State<HorizontalReadPage> with WidgetsBin
     setState(() {}); //刷新UI
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.pageTurningAnimation && !widget.isDualPage) {
-        widget.paperCurlController?.jumpToPage(widget.initIndex);
+      if (widget.pageTurningAnimation) {
+        widget.paperCurlController?.jumpToPage((widget.initIndex.clamp(0, _pageCount() <= 0 ? 0 : _pageCount() - 1) as num).toInt());
       } else {
-        widget.controller.jumpToPage(widget.initIndex);
+        widget.controller.jumpToPage((widget.initIndex.clamp(0, _pageCount() <= 0 ? 0 : _pageCount() - 1) as num).toInt());
       }
     });
   }

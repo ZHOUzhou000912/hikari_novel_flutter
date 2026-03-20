@@ -29,7 +29,7 @@ class ReaderPage extends StatelessWidget {
     controller.readerSettingsState.value.leftMargin,
     controller.readerSettingsState.value.topMargin,
     controller.readerSettingsState.value.rightMargin,
-    controller.readerSettingsState.value.showStatusBar
+    controller.readerSettingsState.value.showStatusBar && !controller.readerSettingsState.value.immersionMode
         ? controller.readerSettingsState.value.bottomMargin + kStatusBarPadding
         : controller.readerSettingsState.value.bottomMargin,
   );
@@ -40,6 +40,16 @@ class ReaderPage extends StatelessWidget {
     fontSize: controller.readerSettingsState.value.fontSize,
     color: controller.currentTextColor.value ?? Theme.of(Get.context!).colorScheme.onSurface,
   );
+
+  bool _useOverlayBottomStatusBar() {
+    final settings = controller.readerSettingsState.value;
+    return settings.showStatusBar && !settings.immersionMode && settings.direction == ReaderDirection.upToDown;
+  }
+
+  bool _useInPageBottomStatusBar() {
+    final settings = controller.readerSettingsState.value;
+    return settings.showStatusBar && !settings.immersionMode && settings.direction != ReaderDirection.upToDown;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +62,9 @@ class ReaderPage extends StatelessWidget {
                     child: Obx(
                       () => Padding(
                         padding: EdgeInsets.only(
-                          bottom: controller.readerSettingsState.value.showStatusBar ? kStatusBarPadding + MediaQuery.of(context).padding.bottom : 0,
+                          bottom: _useOverlayBottomStatusBar()
+                              ? kStatusBarPadding + MediaQuery.of(context).padding.bottom
+                              : 0,
                         ),
                         child: _buildReadPage(context),
                       ),
@@ -238,7 +250,7 @@ class ReaderPage extends StatelessWidget {
   }
 
   Widget _buildHorizontal(BuildContext context) {
-    final usePaperCurl = controller.readerSettingsState.value.pageTurningAnimation && !controller.isDualPage;
+    final usePaperCurl = controller.readerSettingsState.value.pageTurningAnimation;
     final horizontalReader = HorizontalReadPage(
       controller.text.value,
       controller.images,
@@ -251,6 +263,13 @@ class ReaderPage extends StatelessWidget {
       controller: controller.pageController,
       pageTurningAnimation: controller.readerSettingsState.value.pageTurningAnimation,
       paperCurlController: controller.paperCurlController,
+      backgroundColor: controller.currentBgColor.value ?? Theme.of(context).colorScheme.surface,
+      backsideColor: Color.lerp(
+        controller.currentBgColor.value ?? Theme.of(context).colorScheme.surface,
+        Theme.of(context).colorScheme.surfaceTint,
+        Theme.of(context).brightness == Brightness.dark ? 0.18 : 0.10,
+      ),
+      pageFooter: _useInPageBottomStatusBar() ? _buildInPageStatusBar(context) : null,
       onCenterTap: () => controller.showBar.value = !controller.showBar.value,
       onReachStart: controller.prevChapter,
       onReachEnd: controller.nextChapter,
@@ -442,37 +461,58 @@ class ReaderPage extends StatelessWidget {
       bottom: 4,
       child: Obx(
         () => Offstage(
-          offstage: !(controller.readerSettingsState.value.showStatusBar && controller.pageState.value == PageState.success),
+          offstage: !(_useOverlayBottomStatusBar() && controller.pageState.value == PageState.success),
           child: Padding(
             padding: EdgeInsets.fromLTRB(12, 0, 12, MediaQuery.of(context).padding.bottom),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                StreamBuilder(
-                  stream: controller.clockStream(),
-                  builder: (_, snapshot) {
-                    final now = snapshot.data ?? DateTime.now();
-                    final timeString = DateFormat('HH:mm').format(now);
-                    return Text(timeString, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface));
-                  },
-                ),
-                const SizedBox(width: 8),
-                _buildBattery(context, controller.batteryLevel.value),
-                Text("${controller.batteryLevel.value}%", style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface)),
-                const Spacer(),
-                controller.readerSettingsState.value.direction == ReaderDirection.upToDown
-                    ? Text("${controller.verticalProgress.value} %", style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface))
-                    : Text(
-                        "${controller.currentIndex.value + 1} / ${controller.maxPage.value}",
-                        style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface),
-                      ),
-              ],
-            ),
+            child: _buildStatusBarContent(context),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildInPageStatusBar(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: kStatusBarPadding.toDouble(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: _buildStatusBarContent(context),
+      ),
+    );
+  }
+
+  Widget _buildStatusBarContent(BuildContext context) {
+    return Obx(() {
+      final textColor = controller.currentTextColor.value ?? Theme.of(context).colorScheme.onSurface;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          StreamBuilder(
+            stream: controller.clockStream(),
+            builder: (_, snapshot) {
+              final now = snapshot.data ?? DateTime.now();
+              final timeString = DateFormat('HH:mm').format(now);
+              return Text(timeString, style: TextStyle(fontSize: 13, color: textColor));
+            },
+          ),
+          const SizedBox(width: 8),
+          IconTheme(
+            data: IconThemeData(color: textColor),
+            child: _buildBattery(context, controller.batteryLevel.value),
+          ),
+          Text("${controller.batteryLevel.value}%", style: TextStyle(fontSize: 13, color: textColor)),
+          const Spacer(),
+          controller.readerSettingsState.value.direction == ReaderDirection.upToDown
+              ? Text("${controller.verticalProgress.value} %", style: TextStyle(fontSize: 13, color: textColor))
+              : Text(
+                  "${controller.currentIndex.value + 1} / ${controller.maxPage.value}",
+                  style: TextStyle(fontSize: 13, color: textColor),
+                ),
+        ],
+      );
+    });
   }
 
   Widget _buildBattery(BuildContext context, int value) {

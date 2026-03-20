@@ -125,7 +125,7 @@ class ReaderController extends GetxController {
   void onReady() async {
     super.onReady();
     if (readerSettingsState.value.wakeLock) WakelockPlus.toggle(enable: true);
-    if (readerSettingsState.value.immersionMode) SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _applyReaderSystemUi(readerSettingsState.value.immersionMode);
 
     /*
      1) 至于这里的cid为什么不直接使用上面的<get cid>，是因为上面的<get cid>依赖currentVolumeIndex和currentChapterIndex。
@@ -148,7 +148,7 @@ class ReaderController extends GetxController {
   void onClose() {
     TtsService.instance.stop();
     if (readerSettingsState.value.wakeLock) WakelockPlus.toggle(enable: false);
-    if (readerSettingsState.value.immersionMode) SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _applyReaderSystemUi(false);
     super.onClose();
   }
 
@@ -241,7 +241,7 @@ class ReaderController extends GetxController {
 
   /// 跳转页数
   void jumpToPage(int page) {
-    if (readerSettingsState.value.direction != ReaderDirection.upToDown && !isDualPage && readerSettingsState.value.pageTurningAnimation) {
+    if (readerSettingsState.value.direction != ReaderDirection.upToDown && readerSettingsState.value.pageTurningAnimation) {
       paperCurlController.jumpToPage(page);
       return;
     }
@@ -368,12 +368,27 @@ class ReaderController extends GetxController {
 
   void changeImmersionMode(bool enabled) {
     readerSettingsState.value = readerSettingsState.value.copyWith(immersionMode: enabled);
-    if (enabled) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    } else {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
+    _applyReaderSystemUi(enabled);
     LocalStorageService.instance.setReaderImmersionMode(enabled);
+  }
+
+  void _applyReaderSystemUi(bool immersive) {
+    if (!(Platform.isAndroid || Platform.isIOS)) return;
+
+    if (immersive) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      return;
+    }
+
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        statusBarColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ),
+    );
   }
 
   void changeShowStatusBar(bool enabled) {
