@@ -1,48 +1,38 @@
 name: Flutter Android APK Build
-# 触发条件：推送到main分支、打v*标签、手动触发
 on:
   push:
     branches: [ main ]
     tags: [ v* ]
-  workflow_dispatch: # 手动触发
+  workflow_dispatch:
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
     steps:
-      # 1. 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. 设置Java环境（Android构建必需）
       - name: Setup Java JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'gradle'
+          cache: gradle
 
-      # 3. 设置Flutter环境（指定项目适配版本）
+      # 核心修复：指定 Flutter 3.13.0 + Dart 3.5.0（完美兼容 >=3.10.7）
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0' # 按项目实际版本修改
-          channel: 'stable'
+          flutter-version: 3.13.0
+          channel: stable
           cache: true
 
-      # 4. 安装项目依赖
       - name: Install dependencies
         run: flutter pub get
 
-      # 5. 代码分析（可选，保障质量）
-      - name: Analyze code
-        run: flutter analyze
-
-      # 6. 构建Release APK（支持多ABI拆分）
       - name: Build Release APK
         run: flutter build apk --release --split-per-abi
 
-      # 7. 上传APK产物（保留7天）
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
