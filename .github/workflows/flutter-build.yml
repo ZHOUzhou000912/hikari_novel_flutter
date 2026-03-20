@@ -17,11 +17,11 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # ✅ 正确：Dart 3.11.0 ≥ 3.10.7
+      # ✅ 真实存在 + Dart 3.10.7（刚好满足项目要求）
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.47.0
+          flutter-version: 3.44.0
           channel: stable
 
       - name: Install dependencies
